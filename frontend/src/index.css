@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Petit reset pour être propre */
+body {
+  background-color: #f7f7f7;
+  color: #222;
+}
