@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
-// 1. IMPORT DU TOAST
 import toast from 'react-hot-toast';
 import { Save, ArrowLeft, X, Upload, Loader2 } from 'lucide-react';
 
@@ -20,7 +19,14 @@ const EditProperty = () => {
   const [formData, setFormData] = useState(null);
   const [newFiles, setNewFiles] = useState([]); 
 
-  // 1. Charger les données au démarrage
+  // --- LOGIQUE D'URL DYNAMIQUE (L'anti-bug) ---
+  const getImageUrl = (url) => {
+    if (!url) return 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80';
+    if (url.startsWith('http')) return url; // Cloudinary
+    const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    return `${backendUrl}${url}`; // Local
+  };
+
   useEffect(() => {
     const fetchProperty = async () => {
       try {
@@ -37,11 +43,9 @@ const EditProperty = () => {
     fetchProperty();
   }, [id, navigate]);
 
-  // 2. Supprimer une image existante (Avec confirmation stylée)
   const handleDeleteExistingImage = (imageId) => {
     if (!imageId) return toast.error("ID de l'image manquant.");
 
-    // Confirmation personnalisée via Toast
     toast((t) => (
       <div className="flex flex-col items-center space-y-3">
         <span className="font-bold text-gray-800">Supprimer cette photo ?</span>
@@ -84,15 +88,12 @@ const EditProperty = () => {
     }));
   };
 
-  // 3. Soumettre les modifications
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSaving(true);
     try {
-        // A. Update Textes
         await api.put(`/properties/${id}`, formData);
         
-        // B. Update Images (Si nouvelles images ajoutées)
         if (newFiles.length > 0) {
             const imageFormData = new FormData();
             newFiles.forEach(file => imageFormData.append('images', file));
@@ -127,38 +128,36 @@ const EditProperty = () => {
         <h1 className="text-3xl font-black mb-8 text-gray-900 tracking-tight">Configuration de l'annonce</h1>
 
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Section Informations de base */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="md:col-span-2">
               <label className="block text-xs font-black uppercase text-gray-400 mb-2">Titre de l'annonce</label>
-              <input type="text" value={formData.title} required className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-primary font-bold text-gray-800"
+              <input type="text" value={formData.title} required className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-primary font-bold text-gray-800 transition-all"
                 onChange={(e) => setFormData({...formData, title: e.target.value})} />
             </div>
             <div>
               <label className="block text-xs font-black uppercase text-gray-400 mb-2">Prix par nuit (€)</label>
-              <input type="number" value={formData.price_per_night} required className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-primary font-bold text-gray-800"
+              <input type="number" value={formData.price_per_night} required className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-primary font-bold text-gray-800 transition-all"
                 onChange={(e) => setFormData({...formData, price_per_night: e.target.value})} />
             </div>
             <div>
               <label className="block text-xs font-black uppercase text-gray-400 mb-2">Voyageurs max</label>
-              <input type="number" value={formData.max_guests} required className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-primary font-bold text-gray-800"
+              <input type="number" value={formData.max_guests} required className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-primary font-bold text-gray-800 transition-all"
                 onChange={(e) => setFormData({...formData, max_guests: e.target.value})} />
             </div>
-            {/* Ajout Description qui manquait dans le formulaire précédent */}
             <div className="md:col-span-2">
               <label className="block text-xs font-black uppercase text-gray-400 mb-2">Description</label>
-              <textarea rows="4" value={formData.description} required className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-primary font-medium text-gray-700"
+              <textarea rows="4" value={formData.description} required className="w-full p-4 bg-gray-50 rounded-2xl outline-none focus:ring-2 focus:ring-primary font-medium text-gray-700 transition-all"
                 onChange={(e) => setFormData({...formData, description: e.target.value})} />
             </div>
           </div>
 
-          {/* Section Galerie Photo Dynamique */}
           <div>
             <label className="block text-xs font-black uppercase text-gray-400 mb-4">Photos en ligne</label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {formData.images?.map((img) => (
                 <div key={img.id} className="relative aspect-square rounded-2xl overflow-hidden group shadow-md bg-gray-100 border border-gray-200">
-                  <img src={`http://localhost:5000${img.image_url}`} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" alt="Bien" />
+                  {/* SRC CORRIGÉ ICI */}
+                  <img src={getImageUrl(img.image_url)} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" alt="Bien" />
                   <button 
                     type="button" 
                     onClick={() => handleDeleteExistingImage(img.id)} 
@@ -174,21 +173,14 @@ const EditProperty = () => {
                 </div>
               ))}
 
-              {/* Ajouter de nouvelles photos */}
               <label className="aspect-square border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-gray-50 transition hover:border-primary group">
                 <Upload size={24} className="text-gray-300 group-hover:text-primary transition-colors" />
                 <span className="text-[10px] font-black uppercase text-gray-400 mt-2">Ajouter</span>
                 <input type="file" multiple className="hidden" onChange={(e) => setNewFiles([...newFiles, ...Array.from(e.target.files)])} />
               </label>
             </div>
-            {newFiles.length > 0 && (
-              <p className="mt-3 text-xs text-blue-600 font-bold bg-blue-50 p-2 rounded-lg inline-block">
-                {newFiles.length} nouvelle(s) photo(s) en attente d'enregistrement.
-              </p>
-            )}
           </div>
 
-          {/* Équipements */}
           <div>
             <label className="block text-xs font-black uppercase text-gray-400 mb-4">Services inclus</label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -205,11 +197,10 @@ const EditProperty = () => {
             </div>
           </div>
 
-          {/* Bouton de validation */}
           <button 
             type="submit" 
             disabled={isSaving}
-            className="w-full bg-primary text-white py-5 rounded-2xl font-black text-xl shadow-xl hover:bg-rose-600 transition-all flex items-center justify-center active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed"
+            className="w-full bg-primary text-white py-5 rounded-2xl font-black text-xl shadow-xl hover:bg-rose-600 transition-all flex items-center justify-center active:scale-95 disabled:bg-gray-300"
           >
             {isSaving ? (
               <>

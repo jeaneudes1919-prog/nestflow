@@ -2,7 +2,7 @@ import { useEffect, useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-import { MessageCircle, Loader2, Mail } from 'lucide-react';
+import { MessageCircle, Loader2, Mail, User as UserIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Inbox = () => {
@@ -10,6 +10,14 @@ const Inbox = () => {
     const [loading, setLoading] = useState(true);
     const { user } = useContext(AuthContext);
     const navigate = useNavigate();
+
+    // --- LOGIQUE D'URL DYNAMIQUE (Cloudinary vs Local) ---
+    const getImageUrl = (url) => {
+        if (!url) return null;
+        if (url.startsWith('http')) return url;
+        const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+        return `${backendUrl}${url}`;
+    };
 
     useEffect(() => {
         if (!user) {
@@ -64,9 +72,19 @@ const Inbox = () => {
                         >
                             <div className="flex items-center space-x-5">
                                 <div className="relative shrink-0">
-                                    <div className="w-14 h-14 bg-gray-900 rounded-2xl flex items-center justify-center font-black text-white text-lg shadow-md">
-                                        {conv.contact_name[0].toUpperCase()}
+                                    {/* --- AVATAR DYNAMIQUE CORRIGÉ --- */}
+                                    <div className="w-14 h-14 bg-gray-900 rounded-2xl flex items-center justify-center font-black text-white text-lg shadow-md overflow-hidden border border-gray-100">
+                                        {conv.contact_avatar ? (
+                                            <img 
+                                                src={getImageUrl(conv.contact_avatar)} 
+                                                alt="Avatar" 
+                                                className="w-full h-full object-cover" 
+                                            />
+                                        ) : (
+                                            <span>{conv.contact_name[0].toUpperCase()}</span>
+                                        )}
                                     </div>
+                                    
                                     {/* BADGE ROUGE SI NON LU */}
                                     {conv.unread_count > 0 && (
                                         <span className="absolute -top-2 -right-2 bg-primary text-white text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full border-2 border-white shadow-sm animate-bounce">

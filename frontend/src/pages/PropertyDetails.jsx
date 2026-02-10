@@ -23,6 +23,14 @@ const PropertyDetails = () => {
   const [dates, setDates] = useState({ start: '', end: '' });
   const [totalPrice, setTotalPrice] = useState(0);
 
+  // --- LOGIQUE D'URL DYNAMIQUE ---
+  const getImageUrl = (url) => {
+    if (!url) return "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80";
+    if (url.startsWith('http')) return url; // Cloudinary
+    const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    return `${backendUrl}${url}`; // Local
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -97,8 +105,8 @@ const PropertyDetails = () => {
 
   if (!property) return <div className="text-center mt-20 text-red-500 font-bold">Oups, ce logement semble avoir disparu.</div>;
 
-  // --- LOGIQUE GALERIE ADAPTATIVE ---
-  const images = property.images?.map(img => `http://localhost:5000${img.image_url}`) || [];
+  // --- LOGIQUE GALERIE ADAPTATIVE CORRIGÉE ---
+  const images = property.images?.map(img => getImageUrl(img.image_url)) || [];
   const imgClass = "w-full h-full object-cover cursor-pointer hover:scale-[1.03] transition-transform duration-700 ease-in-out";
 
   const renderGallery = () => {
@@ -112,36 +120,28 @@ const PropertyDetails = () => {
         count === 3 ? 'grid-cols-2 grid-rows-2' : 
         'grid-cols-4 grid-rows-2'
       }`}>
-        {/* CAS 1 PHOTO */}
-        {count === 1 && <img src={images[0]} className={imgClass} onClick={() => setIsModalOpen(true)} />}
-
-        {/* CAS 2 PHOTOS */}
-        {count === 2 && images.map((img, i) => <img key={i} src={img} className={imgClass} onClick={() => setIsModalOpen(true)} />)}
-
-        {/* CAS 3 PHOTOS */}
+        {count === 1 && <img src={images[0]} className={imgClass} onClick={() => setIsModalOpen(true)} alt="Property" />}
+        {count === 2 && images.map((img, i) => <img key={i} src={img} className={imgClass} onClick={() => setIsModalOpen(true)} alt="Property" />)}
         {count === 3 && (
           <>
-            <div className="row-span-2"><img src={images[0]} className={imgClass} onClick={() => setIsModalOpen(true)} /></div>
-            <div><img src={images[1]} className={imgClass} onClick={() => setIsModalOpen(true)} /></div>
-            <div><img src={images[2]} className={imgClass} onClick={() => setIsModalOpen(true)} /></div>
+            <div className="row-span-2"><img src={images[0]} className={imgClass} onClick={() => setIsModalOpen(true)} alt="Property" /></div>
+            <div><img src={images[1]} className={imgClass} onClick={() => setIsModalOpen(true)} alt="Property" /></div>
+            <div><img src={images[2]} className={imgClass} onClick={() => setIsModalOpen(true)} alt="Property" /></div>
           </>
         )}
-
-        {/* CAS 4+ PHOTOS (BENTO GRID) */}
         {count >= 4 && (
           <>
-            <div className="col-span-2 row-span-2"><img src={images[0]} className={imgClass} onClick={() => setIsModalOpen(true)} /></div>
-            <div className={count === 4 ? 'col-span-2' : ''}><img src={images[1]} className={imgClass} onClick={() => setIsModalOpen(true)} /></div>
-            <div className={count === 4 ? 'col-span-1' : ''}><img src={images[2]} className={imgClass} onClick={() => setIsModalOpen(true)} /></div>
+            <div className="col-span-2 row-span-2"><img src={images[0]} className={imgClass} onClick={() => setIsModalOpen(true)} alt="Property" /></div>
+            <div className={count === 4 ? 'col-span-2' : ''}><img src={images[1]} className={imgClass} onClick={() => setIsModalOpen(true)} alt="Property" /></div>
+            <div className={count === 4 ? 'col-span-1' : ''}><img src={images[2]} className={imgClass} onClick={() => setIsModalOpen(true)} alt="Property" /></div>
             {images[3] && <div className="relative">
-                <img src={images[3]} className={imgClass} onClick={() => setIsModalOpen(true)} />
+                <img src={images[3]} className={imgClass} onClick={() => setIsModalOpen(true)} alt="Property" />
                 {count > 4 && (
                     <div onClick={() => setIsModalOpen(true)} className="absolute inset-0 bg-black/30 flex items-center justify-center text-white font-black text-xl cursor-pointer">+{count - 4}</div>
                 )}
             </div>}
           </>
         )}
-
         <button onClick={() => setIsModalOpen(true)} className="absolute bottom-6 right-6 bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-black text-sm border border-gray-100 hover:bg-white transition-all">
           <Maximize2 size={16} /> Afficher {count} photos
         </button>
@@ -191,8 +191,13 @@ const PropertyDetails = () => {
                     <h2 className="text-2xl font-black text-slate-900 mb-1">Chez {property.host_name || "l'hôte"}</h2>
                     <p className="text-slate-500 font-bold">{property.max_guests} voyageurs · {property.amenities?.length || 0} équipements</p>
                 </div>
-                <div className="w-16 h-16 bg-slate-900 rounded-[1.5rem] flex items-center justify-center text-white font-black text-2xl uppercase shadow-xl">
-                    {property.host_name?.[0]}
+                {/* AVATAR HÔTE DYNAMIQUE */}
+                <div className="w-16 h-16 bg-slate-900 rounded-[1.5rem] overflow-hidden flex items-center justify-center text-white font-black text-2xl uppercase shadow-xl">
+                    {property.host_avatar ? (
+                      <img src={getImageUrl(property.host_avatar)} className="w-full h-full object-cover" alt="Host" />
+                    ) : (
+                      <span>{property.host_name?.[0]}</span>
+                    )}
                 </div>
             </div>
 
@@ -226,7 +231,7 @@ const PropertyDetails = () => {
             </div>
           </div>
 
-          {/* DROITE : CARD RESERVATION (STICKY) */}
+          {/* DROITE : CARD RESERVATION */}
           <div className="relative">
             <div className="sticky top-32 bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-2xl">
                 <div className="flex justify-between items-center mb-8">
@@ -290,7 +295,13 @@ const PropertyDetails = () => {
                     {reviews.map((review) => (
                         <motion.div whileHover={{ y: -5 }} key={review.id} className="bg-white p-8 rounded-[2rem] border border-gray-50 shadow-sm">
                             <div className="flex items-center gap-4 mb-6">
-                                <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-primary uppercase">{review.username?.[0]}</div>
+                                <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-primary uppercase overflow-hidden">
+                                  {review.user_avatar ? (
+                                    <img src={getImageUrl(review.user_avatar)} className="w-full h-full object-cover" alt="User" />
+                                  ) : (
+                                    <span>{review.username?.[0]}</span>
+                                  )}
+                                </div>
                                 <div>
                                     <h4 className="font-black text-slate-900">{review.username}</h4>
                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{new Date(review.created_at).toLocaleDateString()}</p>
@@ -321,6 +332,7 @@ const PropertyDetails = () => {
                             whileInView={{ opacity: 1, scale: 1 }} 
                             viewport={{ once: true }}
                             key={i} src={img} className="w-full rounded-[2rem] shadow-2xl" 
+                            alt="Gallery detail"
                         />
                     ))}
                 </div>

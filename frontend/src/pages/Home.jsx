@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
     MapPin, Search, Shield, Heart, Zap, Star, ArrowRight,
     Umbrella, Mountain, Building, Tent, Waves, Coffee,
-    CheckCircle, Instagram, Facebook, Twitter, Mail
+    CheckCircle, Instagram, Facebook, Twitter, Mail, Loader2
 } from 'lucide-react';
 
 // --- STYLES CUSTOM ---
@@ -24,7 +24,7 @@ const styles = `
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 
-// --- IMAGE PAR DÉFAUT (Fiable & Premium) ---
+// --- IMAGE PAR DÉFAUT ---
 const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80";
 
 const CATEGORIES = [
@@ -43,21 +43,18 @@ const POPULAR_DESTINATIONS = [
         id: 1,
         city: 'Cotonou',
         count: '120+ logements',
-        // Image d'une villa moderne et lumineuse
         image: 'https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg?auto=compress&cs=tinysrgb&w=800',
     },
     {
         id: 2,
         city: 'Ouidah',
         count: '45 pépites',
-        // Image de plage tropicale avec cocotiers
         image: 'https://images.pexels.com/photos/2486168/pexels-photo-2486168.jpeg?auto=compress&cs=tinysrgb&w=800',
     },
     {
         id: 3,
         city: 'Porto-Novo',
         count: '32 villas',
-        // Celui-ci fonctionnait déjà (villa/maison de luxe)
         image: 'https://images.unsplash.com/photo-1523217582562-09d0def993a6?auto=format&fit=crop&w=800&q=80',
     },
 ];
@@ -69,6 +66,14 @@ const Home = () => {
     const [activeCategory, setActiveCategory] = useState('all');
     const [scrolled, setScrolled] = useState(false);
     const [searchDestination, setSearchDestination] = useState('');
+
+    // --- LOGIQUE D'URL DYNAMIQUE ---
+    const getImageUrl = (url) => {
+        if (!url) return DEFAULT_IMAGE;
+        if (url.startsWith('http')) return url;
+        const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+        return `${backendUrl}${url}`;
+    };
 
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -94,7 +99,6 @@ const Home = () => {
         navigate('/properties');
     };
 
-    // Filtre simulé pour l'UI
     const displayedProperties = activeCategory === 'all' 
         ? properties.slice(0, 8) 
         : properties.filter((_, index) => index % 2 === 0).slice(0, 8);
@@ -132,7 +136,6 @@ const Home = () => {
                         Villas secrètes, lofts urbains et cabanes sur l'eau. Réservez des logements uniques vérifiés par nos experts.
                     </p>
 
-                    {/* BARRE DE RECHERCHE */}
                     <div className="opacity-0 animate-fade-in-up delay-200 w-full max-w-4xl">
                         <div className="bg-white/95 backdrop-blur-xl p-3 md:p-2 rounded-[2rem] shadow-2xl flex flex-col md:flex-row items-center gap-2 border border-white/50">
                             
@@ -244,38 +247,21 @@ const Home = () => {
                                 </div>
                             ))}
                         </div>
-                    ) : displayedProperties.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border border-dashed border-gray-300">
-                            <div className="bg-gray-50 p-6 rounded-full mb-4">
-                                <Search size={40} className="text-gray-400" />
-                            </div>
-                            <h3 className="text-xl font-bold text-gray-900">Aucun résultat</h3>
-                            <Link to="/host/add" className="mt-4 text-primary font-bold hover:underline">Devenir hôte et publier ?</Link>
-                        </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10">
                             {displayedProperties.map((property) => (
                                 <Link key={property.id} to={`/property/${property.id}`} className="group block">
-                                    {/* Image Container */}
                                     <div className="relative aspect-[1/1] rounded-3xl overflow-hidden mb-4 bg-gray-200 shadow-sm group-hover:shadow-xl transition-all duration-300">
                                         <img
-                                            /* --- CORRECTION ICI : UTILISATION DE L'IMAGE PAR DÉFAUT --- */
-                                            src={property.image_url 
-                                                ? `http://localhost:5000${property.image_url}` 
-                                                : DEFAULT_IMAGE
-                                            }
+                                            src={getImageUrl(property.image_url)}
                                             alt={property.title}
                                             className="object-cover w-full h-full group-hover:scale-105 transition duration-700 ease-out"
                                         />
                                         <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full shadow-sm text-[10px] font-black uppercase tracking-widest text-gray-800">
                                             Premium
                                         </div>
-                                        <button className="absolute top-3 right-3 p-2 rounded-full bg-black/20 hover:bg-white text-white hover:text-red-500 transition backdrop-blur-sm">
-                                            <Heart size={20} />
-                                        </button>
                                     </div>
 
-                                    {/* Content */}
                                     <div>
                                         <div className="flex justify-between items-start mb-1">
                                             <h3 className="font-bold text-gray-900 truncate pr-2 group-hover:text-primary transition">{property.title}</h3>
@@ -296,15 +282,6 @@ const Home = () => {
                             ))}
                         </div>
                     )}
-
-                    <div className="mt-16 text-center">
-                        <Link 
-                            to="/properties" 
-                            className="inline-block bg-gray-900 text-white font-bold py-4 px-10 rounded-full shadow-xl hover:bg-gray-800 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
-                        >
-                            Voir tous les logements ({properties.length})
-                        </Link>
-                    </div>
                 </div>
             </section>
 
@@ -323,7 +300,7 @@ const Home = () => {
                             { icon: <Zap size={32} />, title: "Support Éclair", text: "Une équipe dédiée disponible 24/7 pour vous aider." }
                         ].map((item, idx) => (
                             <div key={idx} className="flex flex-col items-center text-center group p-6 rounded-3xl hover:bg-gray-50 transition duration-300">
-                                <div className="w-20 h-20 bg-primary/10 rounded-[2rem] flex items-center justify-center text-primary mb-6 group-hover:scale-110 group-hover:rotate-3 transition duration-300">
+                                <div className="w-20 h-20 bg-primary/10 rounded-[2rem] flex items-center justify-center text-primary mb-6 group-hover:scale-110 transition duration-300">
                                     {item.icon}
                                 </div>
                                 <h3 className="text-xl font-bold text-gray-900 mb-3">{item.title}</h3>
@@ -338,16 +315,13 @@ const Home = () => {
             <section className="py-10 px-4">
                 <div className="max-w-7xl mx-auto rounded-[3rem] bg-gray-900 overflow-hidden relative shadow-2xl">
                     <div className="absolute inset-0 opacity-40">
-                         <img src="https://images.unsplash.com/photo-1556912173-3db9963ee790?auto=format&fit=crop&w=1600&q=80" className="w-full h-full object-cover grayscale" />
+                         <img src="https://images.unsplash.com/photo-1556912173-3db9963ee790?auto=format&fit=crop&w=1600&q=80" className="w-full h-full object-cover grayscale" alt="Host" />
                     </div>
                     
                     <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-12 items-center p-10 md:p-24">
                         <div className="text-white">
                             <span className="text-primary font-bold tracking-widest uppercase text-xs mb-2 block">Devenir Hôte</span>
                             <h2 className="text-4xl md:text-6xl font-black mb-6 leading-tight">Monétisez votre espace libre.</h2>
-                            <p className="text-gray-300 text-lg mb-8 max-w-md">
-                                Rejoignez une communauté d'hôtes passionnés et générez des revenus en toute sécurité.
-                            </p>
                             <Link to="/host/add" className="inline-flex items-center bg-white text-gray-900 font-bold py-4 px-8 rounded-full shadow-lg hover:bg-primary hover:text-white transition-all duration-300">
                                 Commencer maintenant <ArrowRight className="ml-2" />
                             </Link>
@@ -364,9 +338,6 @@ const Home = () => {
                             <div className="flex items-center text-primary font-black text-2xl mb-6 tracking-tighter">
                                 <MapPin className="mr-2" strokeWidth={2.5} /> NestFlow
                             </div>
-                            <p className="text-gray-500 text-sm leading-relaxed mb-6 font-medium">
-                                La plateforme de référence pour des séjours inoubliables en Afrique de l'Ouest.
-                            </p>
                             <div className="flex space-x-4">
                                 {[Instagram, Facebook, Twitter].map((Icon, i) => (
                                     <a key={i} href="#" className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-primary hover:text-white transition-colors">
@@ -393,7 +364,7 @@ const Home = () => {
                     </div>
 
                     <div className="border-t border-gray-100 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-gray-400 font-medium">
-                        <p>© 2025 NestFlow Inc. Tous droits réservés.</p>
+                        <p>© 2026 NestFlow Inc. Tous droits réservés.</p>
                         <div className="flex space-x-6 mt-4 md:mt-0">
                             <span className="cursor-pointer hover:text-gray-900">Confidentialité</span>
                             <span className="cursor-pointer hover:text-gray-900">Conditions</span>

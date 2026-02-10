@@ -28,11 +28,11 @@ exports.getConversations = async (req, res) => {
             SELECT 
                 u.id as contact_id, 
                 u.username as contact_name,
+                u.avatar_url as contact_avatar,
                 p.id as property_id,
                 p.title as property_title,
                 m.content as last_message,
                 m.created_at,
-                -- On compte les messages où l'utilisateur actuel est le destinataire et is_read est false
                 (SELECT COUNT(*) FROM messages 
                  WHERE sender_id = u.id AND receiver_id = $1 AND is_read = false) as unread_count
             FROM messages m
@@ -73,6 +73,7 @@ exports.getChatHistory = async (req, res) => {
     const { contactId, propertyId } = req.params;
     const userId = req.user.id;
     try {
+        // 1. Récupérer les messages
         const messages = await db.query(
             `SELECT * FROM messages 
              WHERE property_id = $1 
@@ -80,7 +81,18 @@ exports.getChatHistory = async (req, res) => {
              ORDER BY created_at ASC`,
             [propertyId, userId, contactId]
         );
-        res.json(messages.rows);
+
+        // 2. Récupérer les infos du contact (Username + Avatar Cloudinary)
+        const contact = await db.query(
+            `SELECT id, username, avatar_url FROM users WHERE id = $1`,
+            [contactId]
+        );
+
+        // On renvoie l'objet combiné
+        res.json({
+            messages: messages.rows,
+            contact: contact.rows[0]
+        });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Erreur serveur' });

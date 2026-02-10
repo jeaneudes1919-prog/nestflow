@@ -1,14 +1,12 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
 import { Link } from 'react-router-dom';
-import toast from 'react-hot-toast'; // Import Toast
+import toast from 'react-hot-toast';
 import { Calendar, MapPin, DollarSign, Star, MessageSquare, Loader2, Plane, AlertCircle } from 'lucide-react';
 
 const MyTrips = () => {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // États pour le formulaire d'avis
   const [reviewForm, setReviewForm] = useState({ visible: false, propertyId: null, rating: 5, comment: '' });
 
   useEffect(() => {
@@ -26,17 +24,23 @@ const MyTrips = () => {
     fetchTrips();
   }, []);
 
+  // --- LOGIQUE D'URL DYNAMIQUE (L'anti-bug !) ---
+  const getImageUrl = (url) => {
+    if (!url) return 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80';
+    if (url.startsWith('http')) return url; // Cloudinary
+    const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    return `${backendUrl}${url}`; // Local
+  };
+
   const submitReview = async (e) => {
     e.preventDefault();
     const loadingToast = toast.loading("Envoi de votre avis...");
-    
     try {
       await api.post('/reviews', {
         property_id: reviewForm.propertyId,
         rating: reviewForm.rating,
         comment: reviewForm.comment
       });
-      
       toast.success("Avis publié ! Merci ⭐", { id: loadingToast });
       setReviewForm({ visible: false, propertyId: null, rating: 5, comment: '' });
     } catch (err) {
@@ -44,7 +48,6 @@ const MyTrips = () => {
     }
   };
 
-  // Petit helper pour le style des statuts
   const getStatusBadge = (status) => {
     switch(status) {
       case 'confirmed': 
@@ -93,10 +96,10 @@ const MyTrips = () => {
           {trips.map((trip) => (
             <div key={trip.id} className="bg-white rounded-3xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition duration-300 group">
                <div className="flex flex-col md:flex-row">
-                   {/* Image */}
+                   {/* Image Corrigée */}
                    <div className="md:w-1/3 h-56 md:h-auto relative overflow-hidden">
                       <img 
-                        src={trip.image_url ? `http://localhost:5000${trip.image_url}` : 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=500&q=80'} 
+                        src={getImageUrl(trip.image_url)} 
                         className="w-full h-full object-cover group-hover:scale-105 transition duration-700"
                         alt={trip.title}
                       />
@@ -139,7 +142,6 @@ const MyTrips = () => {
                           Voir le logement
                         </Link>
 
-                        {/* BOUTON AVIS : Seulement si confirmé */}
                         {trip.status === 'confirmed' && (
                           <button 
                             onClick={() => setReviewForm({ visible: true, propertyId: trip.property_id, rating: 5, comment: '' })}
@@ -161,16 +163,15 @@ const MyTrips = () => {
         </div>
       )}
 
-      {/* MODAL D'AVIS (Design Premium) */}
+      {/* MODAL D'AVIS */}
       {reviewForm.visible && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl transform transition-all scale-100">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-lg shadow-2xl">
             <div className="text-center mb-6">
                 <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4 text-yellow-500">
                     <Star size={32} fill="currentColor" />
                 </div>
                 <h3 className="text-2xl font-black text-gray-900">Notez votre séjour</h3>
-                <p className="text-gray-500 text-sm mt-1">Votre avis aide les autres voyageurs.</p>
             </div>
 
             <form onSubmit={submitReview} className="space-y-6">
@@ -180,11 +181,11 @@ const MyTrips = () => {
                       key={star}
                       type="button"
                       onClick={() => setReviewForm({ ...reviewForm, rating: star })}
-                      className="group p-1 focus:outline-none transition-transform hover:scale-110"
+                      className="group p-1 transition-transform hover:scale-110"
                     >
                       <Star 
                         size={32} 
-                        className={`${star <= reviewForm.rating ? 'text-yellow-400 fill-current' : 'text-gray-200'} transition-colors duration-200`} 
+                        className={`${star <= reviewForm.rating ? 'text-yellow-400 fill-current' : 'text-gray-200'} transition-colors`} 
                       />
                     </button>
                   ))}
@@ -194,8 +195,8 @@ const MyTrips = () => {
                 <label className="block text-xs font-black uppercase text-gray-400 mb-2">Votre commentaire</label>
                 <textarea 
                   required
-                  className="w-full bg-gray-50 p-4 rounded-2xl border-none focus:ring-2 focus:ring-primary outline-none font-medium text-gray-700 min-h-[120px]"
-                  placeholder="Qu'avez-vous pensé du logement ? L'hôte était-il accueillant ?"
+                  className="w-full bg-gray-50 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-primary min-h-[120px]"
+                  placeholder="Qu'avez-vous pensé du logement ?"
                   value={reviewForm.comment}
                   onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })}
                 />
@@ -205,11 +206,11 @@ const MyTrips = () => {
                 <button 
                   type="button" 
                   onClick={() => setReviewForm({ ...reviewForm, visible: false })}
-                  className="py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition"
+                  className="py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl"
                 >
                   Annuler
                 </button>
-                <button type="submit" className="bg-primary text-white py-3 rounded-xl font-bold shadow-lg hover:bg-rose-600 transition">
+                <button type="submit" className="bg-primary text-white py-3 rounded-xl font-bold shadow-lg">
                   Publier l'avis
                 </button>
               </div>

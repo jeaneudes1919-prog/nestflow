@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom'; 
 import api from '../services/api';
-// 1. IMPORT TOAST
 import toast from 'react-hot-toast';
 import { 
   BarChart3, Users, Home, Wallet, Edit3, Trash2, 
@@ -12,6 +11,14 @@ const HostDashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate(); 
+
+  // --- LOGIQUE D'URL DYNAMIQUE (Pour les vignettes) ---
+  const getImageUrl = (url) => {
+    if (!url) return "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=200&q=80";
+    if (url.startsWith('http')) return url;
+    const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    return `${backendUrl}${url}`;
+  };
 
   const fetchDashboard = async () => {
     try {
@@ -32,7 +39,6 @@ const HostDashboard = () => {
       return toast.error("Suppression impossible : des réservations sont en cours.");
     }
 
-    // CONFIRMATION CUSTOM (TOAST)
     toast((t) => (
       <div className="flex flex-col items-center space-y-3">
         <span className="font-bold text-gray-800">Supprimer définitivement ?</span>
@@ -49,7 +55,7 @@ const HostDashboard = () => {
               try {
                 await api.delete(`/properties/${id}`);
                 toast.success("Annonce supprimée !");
-                fetchDashboard(); // Rafraîchir la liste
+                fetchDashboard(); 
               } catch (err) {
                 toast.error("Erreur lors de la suppression");
               }
@@ -115,7 +121,18 @@ const HostDashboard = () => {
                     <tbody className="divide-y divide-gray-50">
                         {data.myProperties.map((p) => (
                         <tr key={p.id} className="hover:bg-gray-50/80 transition group">
-                            <td className="px-6 py-4 font-bold text-gray-800">{p.title}</td>
+                            {/* CELLULE BIEN AVEC IMAGE */}
+                            <td className="px-6 py-4 flex items-center space-x-4">
+                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-100">
+                                    <img 
+                                      src={getImageUrl(p.image_url)} 
+                                      alt="Thumbnail" 
+                                      className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <span className="font-bold text-gray-800">{p.title}</span>
+                            </td>
+
                             <td className="px-6 py-4 font-bold text-gray-600">{p.price_per_night}€</td>
                             <td className="px-6 py-4">
                             {Number(p.active_bookings) > 0 ? (
