@@ -25,7 +25,6 @@ export const AuthProvider = ({ children }) => {
   const fetchUnreadCount = async () => {
     try {
       const res = await api.get('/messages/inbox');
-      // On additionne les unread_count de chaque conversation
       const total = res.data.reduce((acc, conv) => acc + parseInt(conv.unread_count || 0), 0);
       setUnreadCount(total);
     } catch (error) {
@@ -47,6 +46,15 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('token', res.data.token);
     localStorage.setItem('user', JSON.stringify(res.data.user));
     setUser(res.data.user);
+    return res.data; // Ajout du return pour gérer la redirection après inscription
+  };
+
+  // --- NOUVEAUTÉ : La fonction magique pour Profile.jsx ---
+  const updateUser = (updatedUserData) => {
+    // 1. On met à jour le localStorage pour que les changements persistent au refresh
+    localStorage.setItem('user', JSON.stringify(updatedUserData));
+    // 2. On met à jour le state pour que l'UI (Navbar, etc.) réagisse immédiatement
+    setUser(updatedUserData);
   };
 
   const logout = () => {
@@ -60,7 +68,8 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{ 
       user, 
-      setUser, // <--- C'EST ICI QUE JE L'AI AJOUTÉ (Indispensable pour Profile.jsx)
+      setUser, 
+      updateUser, // <--- On expose cette fonction pour simplifier ton Profile.jsx
       login, 
       register, 
       logout, 

@@ -1,10 +1,11 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api', // L'adresse de ton backend
+  // Si VITE_API_URL existe (Vercel), on l'utilise. 
+  // Sinon (Local), on utilise localhost.
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
 });
 
-// Intercepteur : Ajoute automatiquement le token à chaque requête si on est connecté
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {

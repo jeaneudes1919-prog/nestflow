@@ -21,6 +21,16 @@ const Navbar = () => {
     logout();
   };
 
+  // --- LOGIQUE D'ADAPTATION DE L'URL IMAGE ---
+  const getAvatarUrl = (url) => {
+    if (!url) return null;
+    // Si c'est déjà une URL Cloudinary (commence par http), on l'utilise direct
+    if (url.startsWith('http')) return url;
+    // Sinon, c'est un ancien fichier local, on utilise l'URL de ton API Render
+    const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+    return `${backendUrl}${url}`;
+  };
+
   return (
     <nav className="bg-white shadow-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -47,7 +57,7 @@ const Navbar = () => {
                   </div>
                   <div className="w-10 h-10 rounded-full bg-gray-100 border-2 border-transparent group-hover:border-primary overflow-hidden transition">
                     {user.avatar_url ? (
-                      <img src={`http://localhost:5000${user.avatar_url}`} alt="Avatar" className="w-full h-full object-cover" />
+                      <img src={getAvatarUrl(user.avatar_url)} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-400">
                         <User size={20} />
@@ -95,9 +105,8 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* --- BOUTON BURGER MOBILE (Visible uniquement sur mobile) --- */}
+          {/* --- BOUTON BURGER MOBILE --- */}
           <div className="md:hidden flex items-center space-x-4">
-            {/* On garde l'icône message accessible directement sur mobile si connecté */}
             {user && (
               <Link to="/inbox" className="relative text-gray-600">
                 <MessageSquare size={24} />
@@ -116,18 +125,17 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* --- MENU DÉROULANT MOBILE --- */}
+      {/* --- MENU MOBILE --- */}
       {isMobileMenuOpen && (
         <div className="md:hidden bg-white border-t border-gray-100 absolute w-full left-0 shadow-xl animate-fade-in-down">
           <div className="px-4 pt-4 pb-6 space-y-2">
             
             {user ? (
               <>
-                {/* En-tête Profil Mobile */}
                 <Link to="/profile" onClick={closeMenu} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-xl mb-4 border border-gray-100">
                    <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
                       {user.avatar_url ? (
-                        <img src={`http://localhost:5000${user.avatar_url}`} alt="Avatar" className="w-full h-full object-cover" />
+                        <img src={getAvatarUrl(user.avatar_url)} alt="Avatar" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-500 font-bold">
                           {user.username[0].toUpperCase()}
@@ -140,7 +148,6 @@ const Navbar = () => {
                    </div>
                 </Link>
 
-                {/* Liens Mobile */}
                 {user.role === 'host' && (
                   <>
                     <Link to="/host/dashboard" onClick={closeMenu} className="flex items-center space-x-3 p-3 text-gray-700 hover:bg-gray-50 rounded-lg font-medium">
@@ -169,7 +176,6 @@ const Navbar = () => {
                 </button>
               </>
             ) : (
-              // Mobile Visiteur
               <div className="flex flex-col space-y-3 mt-2">
                 <Link to="/login" onClick={closeMenu} className="w-full text-center py-3 font-bold text-gray-700 bg-gray-100 rounded-xl">Connexion</Link>
                 <Link to="/register" onClick={closeMenu} className="w-full text-center py-3 font-bold text-white bg-primary rounded-xl shadow-md">Inscription</Link>
