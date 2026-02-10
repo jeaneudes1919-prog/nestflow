@@ -17,4 +17,6 @@ const storage = new CloudinaryStorage({
 });
 
 const uploadCloud = multer({ storage });
-module.exports = uploadCloud;
+
+// CHANGE CETTE LIGNE : On exporte un objet avec des accolades
+module.exports = { cloudinary, uploadCloud };
