@@ -1,4 +1,3 @@
-// backend/controllers/authController.js
 const db = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -16,7 +15,7 @@ exports.register = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // On retourne tout de suite bio et avatar_url (même s'ils sont null au début)
+        // On insère l'utilisateur dans le schéma nestflow
         const newUser = await db.query(
             'INSERT INTO users (username, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, username, email, role, bio, avatar_url',
             [username, email, hashedPassword, role || 'guest']
@@ -40,7 +39,7 @@ exports.register = async (req, res) => {
     }
 };
 
-// CONNEXION (Optimisé pour renvoyer l'avatar)
+// CONNEXION
 exports.login = async (req, res) => {
     const { email, password } = req.body;
 
@@ -52,7 +51,6 @@ exports.login = async (req, res) => {
         }
 
         const user = userResult.rows[0];
-
         const validPassword = await bcrypt.compare(password, user.password_hash);
         if (!validPassword) {
             return res.status(400).json({ error: 'Email ou mot de passe incorrect' });
@@ -64,7 +62,6 @@ exports.login = async (req, res) => {
             { expiresIn: '7d' }
         );
 
-        // ICI : On renvoie TOUTES les infos nécessaires au frontend
         res.json({
             message: 'Connexion réussie',
             token,
@@ -73,8 +70,8 @@ exports.login = async (req, res) => {
                 username: user.username,
                 email: user.email,
                 role: user.role,
-                bio: user.bio,             // <--- AJOUTÉ
-                avatar_url: user.avatar_url // <--- AJOUTÉ
+                bio: user.bio,
+                avatar_url: user.avatar_url 
             }
         });
 
@@ -98,19 +95,24 @@ exports.updateProfile = async (req, res) => {
         res.json(updatedUser.rows[0]);
     } catch (err) {
         console.error(err);
-        if (err.code === '23505') { // Code erreur PostgreSQL pour "Unique violation" (email déjà pris)
+        if (err.code === '23505') {
             return res.status(400).json({ error: "Cet email est déjà utilisé." });
         }
         res.status(500).json({ error: "Erreur lors de la mise à jour" });
     }
 };
 
-// UPLOAD AVATAR
+// UPLOAD AVATAR (Modifié pour Cloudinary)
 exports.uploadAvatar = async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "Aucun fichier fourni" });
     
     const userId = req.user.id;
-    const avatarUrl = `/uploads/${req.file.filename}`;
+
+    /* IMPORTANT : Avec multer-storage-cloudinary, 
+       l'URL complète est dans req.file.path 
+       (ex: https://res.cloudinary.com/...)
+    */
+    const avatarUrl = req.file.path; 
 
     try {
         const updatedUser = await db.query(

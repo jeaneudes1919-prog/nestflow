@@ -202,22 +202,28 @@ exports.getHostStats = async (req, res) => {
     }
 };
 
-// --- 8. SUPPRIMER UNE ANNONCE ---
+// --- 8. SUPPRIMER UNE ANNONCE (Version Sécurisée) ---
 exports.deleteProperty = async (req, res) => {
     const { id } = req.params;
     const host_id = req.user.id;
 
     try {
-        const check = await db.query(`
-            SELECT id FROM properties WHERE id = $1 AND host_id = $2
-        `, [id, host_id]);
+        // 1. Récupérer toutes les images de ce bien pour le nettoyage Cloud
+        const images = await db.query('SELECT image_url FROM property_images WHERE property_id = $1', [id]);
 
-        if (check.rows.length === 0) return res.status(404).json({ error: "Bien introuvable" });
+        // 2. Supprimer chaque image de Cloudinary
+        for (const img of images.rows) {
+            const publicId = extractPublicId(img.image_url); // On utilise une fonction helper
+            await cloudinary.uploader.destroy(publicId);
+        }
 
-        // On pourrait aussi supprimer toutes les images du cloud ici avant de delete le bien !
-        await db.query('DELETE FROM properties WHERE id = $1 AND host_id = $2', [id, host_id]);
-        res.json({ message: "Annonce supprimée" });
+        // 3. Supprimer le bien (La base Neon supprimera les lignes de property_images par CASCADE si configuré)
+        const result = await db.query('DELETE FROM properties WHERE id = $1 AND host_id = $2', [id, host_id]);
+
+        if (result.rowCount === 0) return res.status(404).json({ error: "Bien introuvable" });
+        res.json({ message: "Annonce et images supprimées du cloud" });
     } catch (err) {
-        res.status(500).json({ error: "Erreur lors de la suppression" });
+        console.error(err);
+        res.status(500).json({ error: "Erreur lors de la suppression complète" });
     }
 };

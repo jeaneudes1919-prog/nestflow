@@ -1,20 +1,26 @@
 // middlewares/uploadMiddleware.js
 const multer = require('multer');
-const path = require('path');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-// Configuration du stockage
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/'); // Les images iront dans backend/uploads
-    },
-    filename: (req, file, cb) => {
-        // On renomme le fichier pour éviter les doublons : image-TIMESTAMP.jpg
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
+// 1. Configuration de Cloudinary (Assure-toi que tes variables d'env sont sur Render)
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Filtre pour n'accepter que les images
+// 2. Configuration du stockage Cloudinary au lieu du DiskStorage
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'nestflow_uploads', // Dossier automatique dans Cloudinary
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+    // Cloudinary gère le renommage unique automatiquement
+  },
+});
+
+// 3. Le filtre reste identique pour la sécurité
 const fileFilter = (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
         cb(null, true);
