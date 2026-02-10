@@ -5,9 +5,9 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
 // 1. Configuration de Cloudinary (Assure-toi que tes variables d'env sont sur Render)
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_KEY,
+  api_secret: process.env.CLOUDINARY_SECRET
 });
 
 // 2. Configuration du stockage Cloudinary au lieu du DiskStorage
