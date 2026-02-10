@@ -12,8 +12,10 @@ const pool = new Pool({
     },
 });
 
-pool.on('connect', () => {
-    console.log('✅ Connecté à la base de données Neon (PostgreSQL)');
+pool.on('connect', async (client) => {
+    // On force le schéma au cas où l'ALTER USER n'aurait pas été fait
+    await client.query('SET search_path TO nestflow');
+    console.log('✅ Connecté et positionné sur le schéma : nestflow');
 });
 
 pool.on('error', (err) => {
