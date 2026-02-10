@@ -2,11 +2,11 @@ import { useEffect, useState, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
-// 1. TOAST
+import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   MapPin, Star, Share, Heart, ShieldCheck, 
-  MessageSquare, CheckCircle, Loader2
+  MessageSquare, CheckCircle, Loader2, Maximize2, X, ChevronLeft
 } from 'lucide-react';
 
 const PropertyDetails = () => {
@@ -17,26 +17,20 @@ const PropertyDetails = () => {
   const [property, setProperty] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // État réservation
   const [dates, setDates] = useState({ start: '', end: '' });
   const [totalPrice, setTotalPrice] = useState(0);
 
-  // Photos par défaut stylées
-  const defaultImages = [
-    "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1560185007-cde436f6a4d0?auto=format&fit=crop&w=800&q=80"
-  ];
-
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const resProp = await api.get(`/properties/${id}`);
+        const [resProp, resReviews] = await Promise.all([
+          api.get(`/properties/${id}`),
+          api.get(`/reviews/${id}`)
+        ]);
         setProperty(resProp.data);
-
-        const resReviews = await api.get(`/reviews/${id}`);
         setReviews(resReviews.data);
       } catch (err) {
         console.error("Erreur chargement", err);
@@ -48,7 +42,6 @@ const PropertyDetails = () => {
     fetchData();
   }, [id]);
 
-  // Calcul dynamique du prix
   useEffect(() => {
     if (dates.start && dates.end && property) {
       const start = new Date(dates.start);
@@ -58,15 +51,12 @@ const PropertyDetails = () => {
     }
   }, [dates, property]);
 
-  // Action : Réserver
   const handleBooking = async (e) => {
     e.preventDefault();
     if (!user) {
         toast("Connectez-vous pour réserver", { icon: '🔒' });
         return navigate('/login');
     }
-    
-    // Vérification de base
     if (totalPrice <= 0) return toast.error("Veuillez choisir des dates valides.");
 
     const loadingToast = toast.loading("Traitement de la demande...");
@@ -76,7 +66,6 @@ const PropertyDetails = () => {
         start_date: dates.start,
         end_date: dates.end
       });
-      
       toast.success("Demande envoyée à l'hôte ! ✈️", { id: loadingToast });
       navigate('/my-trips');
     } catch (err) {
@@ -84,9 +73,8 @@ const PropertyDetails = () => {
     }
   };
 
-  // Action : Contacter l'hôte
   const handleContactHost = (e) => {
-      e.preventDefault(); // Pour éviter que ça submit le form
+      e.preventDefault();
       if (!user) {
           toast("Connectez-vous pour discuter", { icon: '💬' });
           return navigate('/login');
@@ -95,210 +83,250 @@ const PropertyDetails = () => {
   };
 
   if (loading) return (
-      <div className="flex flex-col items-center justify-center h-screen space-y-4">
-        <Loader2 className="animate-spin text-primary" size={48} />
-        <p className="font-bold text-gray-500 italic">Chargement de votre prochaine aventure...</p>
-      </div>
+    <div className="flex flex-col items-center justify-center h-screen bg-white">
+      <motion.div 
+        animate={{ rotate: 360 }} 
+        transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+        className="text-primary mb-4"
+      >
+        <Loader2 size={48} />
+      </motion.div>
+      <p className="font-black text-slate-400 uppercase tracking-widest text-xs">Préparation de votre séjour...</p>
+    </div>
   );
 
   if (!property) return <div className="text-center mt-20 text-red-500 font-bold">Oups, ce logement semble avoir disparu.</div>;
 
-  // --- GALERIE INTELLIGENTE ---
-  const imagesFromDb = property.images || [];
-  const gallery = [];
-  const mainImg = imagesFromDb.find(img => img.is_main) || imagesFromDb[0];
-  const otherImgs = imagesFromDb.filter(img => img !== mainImg);
-  if (mainImg) gallery.push(`http://localhost:5000${mainImg.image_url}`);
-  otherImgs.forEach(img => gallery.push(`http://localhost:5000${img.image_url}`));
-  while (gallery.length < 5) gallery.push(defaultImages[gallery.length % defaultImages.length]);
+  // --- LOGIQUE GALERIE ADAPTATIVE ---
+  const images = property.images?.map(img => `http://localhost:5000${img.image_url}`) || [];
+  const imgClass = "w-full h-full object-cover cursor-pointer hover:scale-[1.03] transition-transform duration-700 ease-in-out";
 
+  const renderGallery = () => {
+    const count = images.length;
+    if (count === 0) return <div className="h-[400px] bg-slate-100 rounded-[2rem] flex items-center justify-center text-slate-400 font-bold">Aucune photo</div>;
+
+    return (
+      <div className={`grid gap-2 md:gap-4 rounded-[2.5rem] overflow-hidden h-[350px] md:h-[550px] relative ${
+        count === 1 ? 'grid-cols-1' : 
+        count === 2 ? 'grid-cols-2' : 
+        count === 3 ? 'grid-cols-2 grid-rows-2' : 
+        'grid-cols-4 grid-rows-2'
+      }`}>
+        {/* CAS 1 PHOTO */}
+        {count === 1 && <img src={images[0]} className={imgClass} onClick={() => setIsModalOpen(true)} />}
+
+        {/* CAS 2 PHOTOS */}
+        {count === 2 && images.map((img, i) => <img key={i} src={img} className={imgClass} onClick={() => setIsModalOpen(true)} />)}
+
+        {/* CAS 3 PHOTOS */}
+        {count === 3 && (
+          <>
+            <div className="row-span-2"><img src={images[0]} className={imgClass} onClick={() => setIsModalOpen(true)} /></div>
+            <div><img src={images[1]} className={imgClass} onClick={() => setIsModalOpen(true)} /></div>
+            <div><img src={images[2]} className={imgClass} onClick={() => setIsModalOpen(true)} /></div>
+          </>
+        )}
+
+        {/* CAS 4+ PHOTOS (BENTO GRID) */}
+        {count >= 4 && (
+          <>
+            <div className="col-span-2 row-span-2"><img src={images[0]} className={imgClass} onClick={() => setIsModalOpen(true)} /></div>
+            <div className={count === 4 ? 'col-span-2' : ''}><img src={images[1]} className={imgClass} onClick={() => setIsModalOpen(true)} /></div>
+            <div className={count === 4 ? 'col-span-1' : ''}><img src={images[2]} className={imgClass} onClick={() => setIsModalOpen(true)} /></div>
+            {images[3] && <div className="relative">
+                <img src={images[3]} className={imgClass} onClick={() => setIsModalOpen(true)} />
+                {count > 4 && (
+                    <div onClick={() => setIsModalOpen(true)} className="absolute inset-0 bg-black/30 flex items-center justify-center text-white font-black text-xl cursor-pointer">+{count - 4}</div>
+                )}
+            </div>}
+          </>
+        )}
+
+        <button onClick={() => setIsModalOpen(true)} className="absolute bottom-6 right-6 bg-white/90 backdrop-blur-md px-6 py-3 rounded-2xl shadow-xl flex items-center gap-2 font-black text-sm border border-gray-100 hover:bg-white transition-all">
+          <Maximize2 size={16} /> Afficher {count} photos
+        </button>
+      </div>
+    );
+  };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 pb-32">
-      {/* HEADER */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-black text-gray-900 mb-2">{property.title}</h1>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex flex-wrap items-center space-x-4 text-sm font-semibold text-gray-700">
-            <span className="flex items-center">
-              <Star size={16} className="text-primary fill-current mr-1" />
-              {property.average_rating > 0 ? property.average_rating : "Nouveau"}
-            </span>
-            <span className="underline cursor-pointer hover:text-primary transition">{reviews.length} avis</span>
-            <span className="hidden md:inline text-gray-400">·</span>
-            <span className="flex items-center underline cursor-pointer hover:text-primary transition">
-              <MapPin size={16} className="mr-1 text-gray-400" /> {property.location}
-            </span>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button className="flex items-center hover:bg-gray-100 px-3 py-2 rounded-lg transition text-sm font-bold">
-              <Share size={16} className="mr-2" /> Partager
-            </button>
-            <button className="flex items-center hover:bg-gray-100 px-3 py-2 rounded-lg transition text-sm font-bold text-rose-500">
-              <Heart size={16} className="mr-2" /> Enregistrer
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* GALERIE PHOTO (GRID BENTO) */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-2 rounded-3xl overflow-hidden h-[300px] md:h-[500px] mb-12 shadow-2xl border border-gray-200">
-        <div className="md:col-span-2 h-full relative group cursor-pointer">
-          <img
-            src={gallery[0]}
-            className="w-full h-full object-cover group-hover:brightness-90 transition duration-500"
-            alt="Main"
-          />
-        </div>
-        <div className="hidden md:grid grid-cols-2 col-span-2 gap-2 h-full">
-          {gallery.slice(1, 5).map((img, index) => (
-            <div key={index} className="h-full w-full overflow-hidden group cursor-pointer">
-              <img
-                src={img}
-                className="w-full h-full object-cover group-hover:scale-110 transition duration-700 ease-out"
-                alt={`Sub ${index}`}
-              />
+    <div className="bg-[#FAFAFA] min-h-screen pb-20">
+      <div className="max-w-7xl mx-auto px-6 pt-10">
+        
+        {/* HEADER SECTION */}
+        <div className="mb-8">
+            <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-[0.2em] mb-4">
+                <Star size={14} className="fill-current" /> Logement d'Exception
             </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-16 relative">
-        {/* GAUCHE : INFOS */}
-        <div className="md:col-span-2">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-8 mb-8">
-            <div>
-              <h2 className="text-2xl font-bold mb-1">Logement proposé par {property.host_name || "l'hôte"}</h2>
-              <p className="text-gray-500 font-medium">
-                {property.max_guests} voyageurs · {property.amenities?.length || 0} équipements · Wifi inclus
-              </p>
-            </div>
-            <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center text-white font-black text-2xl shadow-xl uppercase border-4 border-white">
-              {property.host_name?.charAt(0) || "U"}
-            </div>
-          </div>
-
-          <div className="space-y-6 mb-8 py-4">
-            <div className="flex items-start">
-              <ShieldCheck size={28} className="mr-4 text-primary shrink-0" />
-              <div>
-                <h4 className="font-bold text-gray-900 text-lg">Protection NestCover</h4>
-                <p className="text-gray-500 leading-relaxed">Chaque réservation est protégée gratuitement contre les annulations, les inexactitudes et autres problèmes.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-100 pt-8">
-            <h3 className="text-xl font-bold mb-4 text-gray-900">À propos de ce logement</h3>
-            <p className="text-gray-600 leading-relaxed text-lg whitespace-pre-line font-medium">
-              {property.description}
-            </p>
-          </div>
-
-          <div className="border-t border-gray-100 pt-8 mt-8">
-            <h3 className="text-xl font-bold mb-6 text-gray-900">Ce que propose ce logement</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4">
-              {property.amenities?.map((item) => (
-                <div key={item} className="flex items-center text-gray-700 p-2 hover:bg-gray-50 rounded-lg transition">
-                  <CheckCircle size={20} className="mr-4 text-gray-400" />
-                  <span className="capitalize font-medium">{item.replace('_', ' ')}</span>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                <div>
+                    <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight mb-4">{property.title}</h1>
+                    <div className="flex flex-wrap items-center gap-6 text-sm font-bold text-slate-500">
+                        <span className="flex items-center gap-1 text-slate-900">
+                            <Star size={16} className="text-primary fill-current" /> {property.average_rating || "Nouveau"} · {reviews.length} avis
+                        </span>
+                        <span className="flex items-center gap-1 underline cursor-pointer">
+                            <MapPin size={16} /> {property.location}
+                        </span>
+                    </div>
                 </div>
-              ))}
+                <div className="flex gap-3">
+                    <button className="flex items-center gap-2 bg-white px-5 py-3 rounded-2xl shadow-sm border border-gray-100 font-bold text-sm hover:bg-slate-50 transition"><Share size={18}/> Partager</button>
+                    <button className="flex items-center gap-2 bg-white px-5 py-3 rounded-2xl shadow-sm border border-gray-100 font-bold text-sm text-rose-500 hover:bg-rose-50 transition"><Heart size={18}/> Enregistrer</button>
+                </div>
             </div>
-          </div>
         </div>
 
-        {/* DROITE : CARD RESERVATION STICKY */}
-        <div className="relative">
-          <div className="border rounded-3xl shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] p-8 sticky top-28 bg-white border-gray-100 ring-1 ring-black/5">
-            <div className="flex justify-between items-end mb-6">
-              <div>
-                <span className="text-2xl font-black text-gray-900">{property.price_per_night}€</span>
-                <span className="text-gray-400 text-sm font-bold"> / nuit</span>
-              </div>
-              <div className="flex items-center text-xs font-bold bg-gray-100 px-2 py-1 rounded text-gray-900">
-                <Star size={12} className="text-primary fill-current mr-1" />
-                {property.average_rating > 0 ? property.average_rating : "Nouveau"} · {reviews.length} avis
-              </div>
+        {/* DYNAMIC GALLERY */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
+            {renderGallery()}
+        </motion.div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-16 mt-16 relative">
+          
+          {/* GAUCHE : INFOS */}
+          <div className="lg:col-span-2">
+            <div className="flex items-center justify-between py-8 border-b border-gray-100">
+                <div>
+                    <h2 className="text-2xl font-black text-slate-900 mb-1">Chez {property.host_name || "l'hôte"}</h2>
+                    <p className="text-slate-500 font-bold">{property.max_guests} voyageurs · {property.amenities?.length || 0} équipements</p>
+                </div>
+                <div className="w-16 h-16 bg-slate-900 rounded-[1.5rem] flex items-center justify-center text-white font-black text-2xl uppercase shadow-xl">
+                    {property.host_name?.[0]}
+                </div>
             </div>
 
-            <form onSubmit={handleBooking} className="space-y-4">
-              <div className="grid grid-cols-2 border rounded-2xl overflow-hidden border-gray-300">
-                <div className="p-3 border-r border-gray-300 bg-white hover:bg-gray-50 transition cursor-pointer relative">
-                  <label className="block text-[9px] font-black uppercase text-gray-800 tracking-wider">Arrivée</label>
-                  <input type="date" required className="w-full text-sm outline-none bg-transparent font-medium text-gray-600 cursor-pointer mt-1" onChange={(e) => setDates({ ...dates, start: e.target.value })} />
+            <div className="py-10 space-y-10">
+                <div className="flex gap-6">
+                    <ShieldCheck size={32} className="text-primary shrink-0" />
+                    <div>
+                        <h4 className="font-black text-lg text-slate-900">NestCover Protection</h4>
+                        <p className="text-slate-500 font-medium leading-relaxed">Nous protégeons chaque séjour. Si le logement ne correspond pas, on vous reloge ou on vous rembourse.</p>
+                    </div>
                 </div>
-                <div className="p-3 bg-white hover:bg-gray-50 transition cursor-pointer relative">
-                  <label className="block text-[9px] font-black uppercase text-gray-800 tracking-wider">Départ</label>
-                  <input type="date" required className="w-full text-sm outline-none bg-transparent font-medium text-gray-600 cursor-pointer mt-1" onChange={(e) => setDates({ ...dates, end: e.target.value })} />
-                </div>
-              </div>
 
-              <button type="submit" className="w-full bg-gradient-to-r from-primary to-rose-600 text-white py-4 rounded-xl font-black text-lg hover:shadow-xl hover:scale-[1.02] transition-all active:scale-95 shadow-md">
-                Réserver
-              </button>
-              
-              <button
-                type="button" // Important pour ne pas submit
-                onClick={handleContactHost}
-                className="w-full flex items-center justify-center space-x-2 py-3 border-2 border-gray-200 rounded-xl font-bold text-gray-700 hover:border-gray-900 hover:text-gray-900 transition-all active:scale-95"
-              >
-                <MessageSquare size={18} />
-                <span>Contacter l'hôte</span>
-              </button>
-            </form>
-
-            <div className="mt-6 space-y-4 text-sm text-gray-600 font-medium">
-              <div className="flex justify-between">
-                <span className="underline">{property.price_per_night}€ x {totalPrice / property.price_per_night || 0} nuits</span>
-                <span>{totalPrice}€</span>
-              </div>
-              <div className="flex justify-between font-black text-lg text-gray-900 border-t border-dashed border-gray-200 pt-4">
-                <span>Total</span>
-                <span>{totalPrice}€</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION COMMENTAIRES */}
-      <div className="border-t border-gray-200 pt-16 mt-16">
-        <h2 className="text-2xl font-black flex items-center mb-10 text-gray-900">
-          <Star size={24} className="text-primary fill-current mr-3" />
-          {property.average_rating > 0 ? property.average_rating : "Nouveau"} · {reviews.length} commentaires
-        </h2>
-
-        {reviews.length === 0 ? (
-          <div className="bg-gray-50 p-12 rounded-3xl text-center border border-gray-200">
-            <MessageSquare size={40} className="mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-500 font-bold">Aucun avis pour l'instant.</p>
-            <p className="text-gray-400 text-sm mt-1">Soyez le premier à partager votre expérience !</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-12">
-            {reviews.map((review) => (
-              <div key={review.id} className="bg-gray-50 p-6 rounded-2xl hover:bg-white hover:shadow-lg transition duration-300 border border-transparent hover:border-gray-100">
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center font-black text-gray-500 uppercase">
-                    {review.username.charAt(0)}
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-gray-900">{review.username}</h4>
-                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">
-                      {new Date(review.created_at).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+                <div className="pt-8 border-t border-gray-100">
+                    <h3 className="text-2xl font-black mb-6">À propos du logement</h3>
+                    <p className="text-slate-600 leading-relaxed text-lg font-medium whitespace-pre-line">
+                        {property.description}
                     </p>
-                  </div>
                 </div>
-                <div className="flex text-yellow-400 mb-3 text-xs">
-                  {[...Array(review.rating || 5)].map((_, i) => <Star key={i} size={14} fill="currentColor" />)}
+
+                <div className="pt-8 border-t border-gray-100">
+                    <h3 className="text-2xl font-black mb-8">Ce que propose ce lieu</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {property.amenities?.map((item) => (
+                            <div key={item} className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-gray-50 shadow-sm font-bold text-slate-700">
+                                <CheckCircle size={20} className="text-green-500" />
+                                <span className="capitalize">{item.replace('_', ' ')}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-                <p className="text-gray-600 leading-relaxed font-medium">"{review.comment}"</p>
-              </div>
-            ))}
+            </div>
           </div>
-        )}
+
+          {/* DROITE : CARD RESERVATION (STICKY) */}
+          <div className="relative">
+            <div className="sticky top-32 bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-2xl">
+                <div className="flex justify-between items-center mb-8">
+                    <div>
+                        <span className="text-3xl font-black text-slate-900">{property.price_per_night}€</span>
+                        <span className="text-slate-400 font-bold italic"> / nuit</span>
+                    </div>
+                    <div className="text-xs font-black bg-slate-100 px-3 py-1 rounded-full uppercase tracking-tighter">
+                        {reviews.length} avis
+                    </div>
+                </div>
+
+                <form onSubmit={handleBooking} className="space-y-4">
+                    <div className="grid grid-cols-2 border-2 border-gray-100 rounded-3xl overflow-hidden focus-within:border-primary transition-colors">
+                        <div className="p-4 border-r border-gray-100">
+                            <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Arrivée</label>
+                            <input type="date" required className="w-full font-bold outline-none bg-transparent" onChange={(e) => setDates({ ...dates, start: e.target.value })} />
+                        </div>
+                        <div className="p-4">
+                            <label className="block text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Départ</label>
+                            <input type="date" required className="w-full font-bold outline-none bg-transparent" onChange={(e) => setDates({ ...dates, end: e.target.value })} />
+                        </div>
+                    </div>
+
+                    <button type="submit" className="w-full bg-primary py-5 rounded-2xl text-white font-black text-xl hover:bg-rose-600 shadow-lg shadow-rose-200 transition-all active:scale-95">
+                        Réserver maintenant
+                    </button>
+
+                    <button type="button" onClick={handleContactHost} className="w-full flex items-center justify-center gap-3 py-4 border-2 border-slate-900 rounded-2xl font-black text-slate-900 hover:bg-slate-900 hover:text-white transition-all">
+                        <MessageSquare size={20} /> Contacter l'hôte
+                    </button>
+                </form>
+
+                <div className="mt-8 pt-8 border-t border-dashed border-gray-200 space-y-4">
+                    <div className="flex justify-between text-slate-500 font-bold">
+                        <span className="underline">Prix du séjour</span>
+                        <span>{totalPrice}€</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-2">
+                        <span className="text-xl font-black text-slate-900">Total</span>
+                        <span className="text-2xl font-black text-primary">{totalPrice}€</span>
+                    </div>
+                </div>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION COMMENTAIRES */}
+        <div className="mt-24 pt-16 border-t border-gray-100">
+            <h2 className="text-3xl font-black text-slate-900 mb-12 flex items-center gap-4">
+                <Star size={32} className="text-primary fill-current" /> {property.average_rating || "Nouveau"} · {reviews.length} témoignages
+            </h2>
+
+            {reviews.length === 0 ? (
+                <div className="bg-white p-20 rounded-[3rem] text-center border border-dashed border-gray-200">
+                    <MessageSquare size={48} className="mx-auto text-slate-200 mb-6" />
+                    <p className="text-slate-400 font-black uppercase tracking-widest">Aucun avis pour le moment</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {reviews.map((review) => (
+                        <motion.div whileHover={{ y: -5 }} key={review.id} className="bg-white p-8 rounded-[2rem] border border-gray-50 shadow-sm">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-primary uppercase">{review.username?.[0]}</div>
+                                <div>
+                                    <h4 className="font-black text-slate-900">{review.username}</h4>
+                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{new Date(review.created_at).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-1 mb-4 text-primary">
+                                {[...Array(5)].map((_, i) => <Star key={i} size={14} fill={i < (review.rating || 5) ? "currentColor" : "none"} />)}
+                            </div>
+                            <p className="text-slate-600 font-medium italic leading-relaxed">"{review.comment}"</p>
+                        </motion.div>
+                    ))}
+                </div>
+            )}
+        </div>
       </div>
+
+      {/* MODAL GALERIE PLEIN ÉCRAN */}
+      <AnimatePresence>
+        {isModalOpen && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] bg-black p-4 md:p-10 overflow-y-auto no-scrollbar">
+                <button onClick={() => setIsModalOpen(false)} className="fixed top-8 right-8 z-[210] bg-white/10 hover:bg-white/20 p-4 rounded-full text-white backdrop-blur-md transition">
+                    <X size={32} />
+                </button>
+                <div className="max-w-4xl mx-auto space-y-8 py-10">
+                    {images.map((img, i) => (
+                        <motion.img 
+                            initial={{ opacity: 0, scale: 0.9 }} 
+                            whileInView={{ opacity: 1, scale: 1 }} 
+                            viewport={{ once: true }}
+                            key={i} src={img} className="w-full rounded-[2rem] shadow-2xl" 
+                        />
+                    ))}
+                </div>
+            </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
